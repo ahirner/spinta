@@ -2,11 +2,6 @@ use crate::{EsEvent, EventHandler, Result};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::EventSource;
 
-#[allow(clippy::needless_pass_by_value)]
-fn string_from_js_string(s: js_sys::JsString) -> String {
-    s.as_string().unwrap_or(format!("{:#?}", s))
-}
-
 fn new_event_source(url: &str) -> Result<EventSource> {
     EventSource::new(url).map_err(|_| "couldn't aquire event source".to_string())
 }
@@ -53,11 +48,12 @@ pub async fn es_connect_async(url: String, on_event: EventHandler) {
     }
 
     {
-        let onmessage_callback = Closure::wrap(Box::new(move |e: web_sys::MessageEvent| {
+        let onmessage_callback = Closure::wrap(Box::new(move |m: web_sys::MessageEvent| {
             // Handle
-            if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
-                on_event(EsEvent::Message(string_from_js_string(txt)));
-            }
+            let txt = m.data().as_string().unwrap_or(format!("{:#?}", m.data()));
+            // todo: rm
+            console::log_2(&wasm_bindgen::JsValue::from_str(&txt), &m.data());
+            on_event(EsEvent::Message(txt));
         }) as Box<dyn FnMut(web_sys::MessageEvent)>);
         // set message event handler on Eventsource
         es.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
