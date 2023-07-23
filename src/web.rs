@@ -26,13 +26,17 @@ pub async fn es_connect_async(url: String, on_event: EventHandler) {
 
     {
         let on_event = on_event.clone();
+        let es_event = es.clone();
         let onerror_callback = Closure::wrap(Box::new(move |error_event: wasm_bindgen::JsValue| {
             console::log_2(
                 &wasm_bindgen::JsValue::from_str("connect onerror"),
                 &error_event,
             );
             let err_msg = format!("{:?}", error_event);
-            on_event(EsEvent::Error(err_msg));
+            let res = on_event(EsEvent::Error(err_msg));
+            if let std::ops::ControlFlow::Break(_) = res {
+                es_event.close();
+            };
         }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
         es.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
@@ -40,20 +44,28 @@ pub async fn es_connect_async(url: String, on_event: EventHandler) {
 
     {
         let on_event = on_event.clone();
+        let es_event = es.clone();
         let onopen_callback = Closure::wrap(Box::new(move |_| {
-            on_event(EsEvent::Opened);
+            let res = on_event(EsEvent::Opened);
+            if let std::ops::ControlFlow::Break(_) = res {
+                es_event.close();
+            };
         }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
         es.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
         onopen_callback.forget();
     }
 
     {
+        let es_event = es.clone();
         let onmessage_callback = Closure::wrap(Box::new(move |m: web_sys::MessageEvent| {
             // Handle
             let txt = m.data().as_string().unwrap_or(format!("{:#?}", m.data()));
             // todo: rm
             console::log_2(&wasm_bindgen::JsValue::from_str(&txt), &m.data());
-            on_event(EsEvent::Message(txt));
+            let res = on_event(EsEvent::Message(txt));
+            if let std::ops::ControlFlow::Break(_) = res {
+                es_event.close();
+            };
         }) as Box<dyn FnMut(web_sys::MessageEvent)>);
         // set message event handler on Eventsource
         es.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
