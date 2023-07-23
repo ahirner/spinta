@@ -22,6 +22,7 @@ pub fn es_connect(url: String, on_event: EventHandler) -> Result<()> {
 pub async fn es_connect_async(url: String, on_event: EventHandler) {
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast as _;
+    use web_sys::console;
 
     let es = new_event_source(&url).unwrap();
 
@@ -30,14 +31,14 @@ pub async fn es_connect_async(url: String, on_event: EventHandler) {
 
     {
         let on_event = on_event.clone();
-        let onerror_callback = Closure::wrap(Box::new(move |error_event: web_sys::ErrorEvent| {
-            tracing::error!(
-                "error event: {}: {:?}",
-                error_event.message(),
-                error_event.error()
+        let onerror_callback = Closure::wrap(Box::new(move |error_event: wasm_bindgen::JsValue| {
+            console::log_2(
+                &wasm_bindgen::JsValue::from_str("connect onerror"),
+                &error_event,
             );
-            on_event(EsEvent::Error(error_event.message()));
-        }) as Box<dyn FnMut(web_sys::ErrorEvent)>);
+            let err_msg = format!("{:?}", error_event);
+            on_event(EsEvent::Error(err_msg));
+        }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
         es.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
     }
